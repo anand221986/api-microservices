@@ -31,6 +31,7 @@ import { ApiMiddleware } from './middleware/api.middleware';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { EmailSignatureController } from './email-signature/email-signature.controller';
 import { EmailSignatureService } from './email-signature/email-signature.service';
+import { MailMergeService } from './email/mail-merge.service';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -92,7 +93,8 @@ import { EmailSignatureService } from './email-signature/email-signature.service
     ClusterService,
     IMailService,
     GmailImapService,
-    EmailSignatureService
+    EmailSignatureService,
+    MailMergeService
   ],
 })
 export class AppModule implements NestModule {

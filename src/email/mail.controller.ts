@@ -22,11 +22,16 @@ import { UtilService } from "../util/util.service";
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
+import {  MailMergeSendDto } from './mail-merged.dto';
+import { MailMergeService } from './mail-merge.service';
 
-@ApiTags('Email') // Group in Swagger
+@ApiTags('email') // Group in Swagger
 @Controller('email')
 export class EmailController {
-  constructor(private readonly emailService: EmailService, private readonly mailService: MailService, private readonly utilService: UtilService) { }
+  constructor(private readonly emailService: EmailService, 
+    private readonly mailService: MailService,
+     private readonly utilService: UtilService,
+        private readonly mailMergeService: MailMergeService,) { }
   @Post('merge')
   sendMailMerge(@Body() dto: SendMailMergeDto) {
     return this.mailService.sendMailMerge(dto);
@@ -181,5 +186,10 @@ create(@Body() dto: CreateEmailTemplateDto) {
       );
     }
   }
+//mail merge button call the function 
+ @Post('send')
+async sendMergeMail(@Body() body: MailMergeSendDto) {
+  return this.mailMergeService.sendMailMerge(body);
+}
 
 }
