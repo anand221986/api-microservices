@@ -23,37 +23,43 @@ export class EmailSignatureService {
   // 📌 CREATE SIGNATURE
   async create(dto: CreateEmailSignatureDto) {
     try {
-    const isPro = await this.usersService.isPro(dto.user_id);
-
-    if (!isPro) {
+    // const isPro = await this.usersService.isPro(dto.user_id);
+    const isPro = true;
+    if (isPro) {
       // Free plan allows only 1 signature
       const existingSignatures = await this.getSignatures(dto.user_id);
       if (existingSignatures.length >= 1) {
         throw new ForbiddenException('Upgrade to Pro for multiple signatures');
       }
     }
-      const query = `
-        INSERT INTO email_signatures
-        (user_id, name, designation, company, phone, email, website, logo_url, logo_base64, custom_html)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-        RETURNING *;
-      `;
-
-      const values = [
-        dto.user_id,
-        dto.name,
-        dto.designation,
-        dto.company,
-        dto.phone,
-        dto.email,
-        dto.website,
-        dto.logo_url,
-        dto.logo_base64,
-        dto.custom_html,
-      ];
-
-      const [signature] = await this.dbService.executeQuery(query, values);
-
+     const query = `INSERT INTO email_signatures(
+    user_id, name, last_name, designation, company,
+    phone, mobile, email, website, address,
+    template_id, social_links, platform,
+    logo_url, logo_base64, custom_html
+  )
+  VALUES
+  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+  RETURNING *;`;
+    const values = [
+  dto.user_id,
+  dto.name,
+  dto.lastName,
+  dto.designation,
+  dto.company,
+  dto.phone,
+  dto.mobile,
+  dto.email,
+  dto.website,
+  dto.address,
+  dto.templateId,
+  dto.socialLinks ? JSON.stringify(dto.socialLinks) : null,
+  dto.platform,
+  dto.logo_url,
+  dto.logo_base64,
+  dto.custom_html,
+];
+ const [signature] = await this.dbService.executeQuery(query, values);
       return this.utilService.successResponse(
         signature,
         'Email signature created successfully',

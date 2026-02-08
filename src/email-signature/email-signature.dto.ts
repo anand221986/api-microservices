@@ -1,16 +1,62 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, IsInt } from 'class-validator';
 import { Expose,Type } from 'class-transformer';
- 
-
 export class CreateEmailSignatureDto {
-  @IsInt()
+  @IsOptional()
   @Type(() => Number)
   user_id: number;
-
   @IsString()
   @IsNotEmpty()
   name: string;
- @Expose({ name: 'logoUrl' })
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  designation?: string;
+
+  @IsOptional()
+  @IsString()
+  company?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @IsOptional()
+  @IsString()
+  mobile?: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  website?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  templateId?: string;
+
+  @IsOptional()
+  socialLinks?: {
+    facebook?: string;
+    twitter?: string;
+    linkedin?: string;
+    instagram?: string;
+    youtube?: string;
+  };
+
+  @IsOptional()
+  @IsString()
+  platform?: string;
+
+  @Expose({ name: 'logoUrl' })
   @IsOptional()
   @IsString()
   logo_url?: string;
@@ -24,26 +70,10 @@ export class CreateEmailSignatureDto {
   @IsOptional()
   @IsString()
   custom_html?: string;
-  @IsOptional()
-  @IsString()
-  designation?: string;
 
   @IsOptional()
-  @IsString()
-  company?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  phone: string;
-
-  @IsEmail()
-  email: string;
-
-  @IsOptional()
-  @IsString()
-  website?: string;
-
-   
+  @IsInt()
+  id?: number;
 }
 
 export class UpdateEmailSignatureDto {

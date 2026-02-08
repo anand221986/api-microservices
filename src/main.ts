@@ -48,13 +48,13 @@ async function bootstrap() {
   });
 
   // -------------------- CORS --------------------
-  const LOCAL_HOSTS = ['localhost', '10.216.221.3', '72.61.229.100'];
-  const PORTS = ['8080', '8081','3000'];
+  const LOCAL_HOSTS = ['localhost', '34.31.149.20'];
+  const PORTS = ['8080', '8081','3002'];
   const origins = [
   ...LOCAL_HOSTS.flatMap(host =>
     PORTS.map(port => `http://${host}:${port}`)
   ),
-  'http://72.61.229.100', // no port
+  'http://34.31.149.20', // no port
 ];
 app.enableCors({
   origin: (origin, callback) => {

@@ -337,11 +337,13 @@ JOIN mail_templates mt
   }
 
   
-
+  //delete Jobs
    async deleteJobs(id: number) {
     try {
       const query = 'DELETE FROM mail_merge_jobs WHERE id = $1 RETURNING *';
       const result = await this.dbService.executeQuery(query, [id]);
+      const Query = 'DELETE FROM mail_merge_recipients WHERE id = $1 RETURNING *';
+      const queryResult = await this.dbService.executeQuery( Query, [id]);
       if (result.length === 0) {
         throw new NotFoundException(`mail Merge Jobs with ID ${id} not found`);
       }
@@ -353,8 +355,6 @@ JOIN mail_templates mt
         : new InternalServerErrorException('Failed to delete mail Merge');
     }
   }
- 
-
 }
 
  

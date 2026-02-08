@@ -25,7 +25,7 @@ export class MailMergeService {
         scheduled_at
       )
       VALUES (
-        $1, $2, 0, 'PENDING',
+        $1, $2, 0, 'pending',
         $3, $4, $5, $6, $7, $8
       )
       RETURNING id;
