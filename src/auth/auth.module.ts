@@ -11,9 +11,11 @@ import { DbService } from '../db/db.service';
 import { JwtStrategy } from '../jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { GoogleAuthModule } from './google-auth.module';
 
 @Module({
     imports: [
+        GoogleAuthModule, 
         ConfigModule,
         JwtModule.register({
             global: true,

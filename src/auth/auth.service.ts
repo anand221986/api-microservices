@@ -33,7 +33,7 @@ export class AuthService {
   private readonly cognitoClient: CognitoIdentityProviderClient;
   constructor(
     private readonly config: ConfigService,
-    private readonly userService: UserService,
+    // private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly utilService: UtilService,
     public dbService: DbService,
@@ -423,6 +423,43 @@ generateTokens(user: {
     accessToken,
     refreshToken,
   };
+}
+
+  /**
+   * Generate application JWT
+   */
+  generateJwt(user: {
+    id: number | string;
+    email: string;
+    role?: string | string[];
+  }): string {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role ?? "USER",
+    };
+
+    return this.jwtService.sign(payload, {
+      secret: process.env.JWT_SECRET,
+      expiresIn: "1h",
+    });
+  }
+
+  async findByEmail(email: string) {
+ const users = await this.dbService.execute(`SELECT
+      id,
+      first_name,
+      last_name,
+      email,
+      password,
+      agency_id,
+      status,role
+    FROM users
+    WHERE email = '${email}'
+    LIMIT 1
+  `);
+
+  return users?.length ? users[0] : null;
 }
 
 }

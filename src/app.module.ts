@@ -26,6 +26,8 @@ import { ClusterService } from './services/cluster/cluster.service';
 import { IMailService } from './util/mail.service';
 import { GmailImapService } from './util/gmail-imap.service';
 import { AuthModule } from './auth/auth.module';
+import { GoogleAuthService} from './auth/google-auth.service';
+import { GoogleAuthModule } from './auth/google-auth.module';
 /* Middleware */
 import { ApiMiddleware } from './middleware/api.middleware';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
@@ -34,6 +36,7 @@ import { EmailSignatureService } from './email-signature/email-signature.service
 import { MailMergeService } from './email/mail-merge.service';
 @Module({
   imports: [
+     
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     AuthModule,
@@ -72,7 +75,7 @@ import { MailMergeService } from './email/mail-merge.service';
   controllers: [
     AppController,
     CommonController,
-    AuthController,
+    // AuthController,
     UserController,
     EmailController,
     EmailSignatureController
@@ -94,7 +97,7 @@ import { MailMergeService } from './email/mail-merge.service';
     IMailService,
     GmailImapService,
     EmailSignatureService,
-    MailMergeService
+    MailMergeService,
   ],
 })
 export class AppModule implements NestModule {

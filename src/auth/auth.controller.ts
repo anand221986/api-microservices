@@ -18,15 +18,15 @@ import { GoogleAuthService } from './google-auth.service';
 export class AuthController {
     private googleClient: OAuth2Client;
     private oAuth2Client: OAuth2Client;
-     private googleAuthService: GoogleAuthService;
     constructor(
-        public authService: AuthService, private utilService: UtilService
+        public authService: AuthService, private utilService: UtilService,private readonly googleAuthService: GoogleAuthService,
     ) {
         this.googleClient = new OAuth2Client();
         this.oAuth2Client = new OAuth2Client(
       '1042994757383-ra2u6memdacvegf51krbg95fn5ret1ef.apps.googleusercontent.com',
       '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',
-      'http://localhost:3000/auth/google/redirect' // must match Google Cloud redirect URI
+      // 'http://localhost:3002/auth/google/redirect' // must match Google Cloud redirect URI
+      'http://api.amyntasmedia.com/auth/google/redirect' 
     );
     }
 
@@ -210,11 +210,79 @@ export class AuthController {
     }
   }
 
-   @Post('google')
-  async googleLogin(@Body('token') token: string) {
-    const profile = await this.googleAuthService.verifyToken(token);
-    return this.authService.googleLogin(profile);
+ @Post('google')
+@ApiOperation({ summary: 'Google SSO login' })
+@ApiBody({ schema: { example: { token: 'google-id-token' } } })
+@ApiResponse({ status: 200, description: 'Google login success' })
+async googleLogin(@Body('token') token: string) {
+  if (!token) {
+    throw new BadRequestException('Google token missing');
   }
+
+  // 1️⃣ Verify Google ID token
+  const payload = await this.googleAuthService.verifyToken(token);
+
+  if (!payload?.email) {
+    throw new BadRequestException('Invalid Google token');
+  }
+
+  const {
+    email,
+    name = '',
+    picture,
+    sub: googleId,
+    
+  } = payload;
+
+  // 2️⃣ Split name safely
+  const [firstName, ...lastNameParts] = name.split(' ');
+  const lastName = lastNameParts.join(' ');
+
+  // 3️⃣ Check if user already exists
+  let user = await this.authService.findByEmail(email);
+
+  if (!user) {
+    // 4️⃣ Create new Google user
+    const userCreatePayload = {
+      first_name: firstName || '',
+      last_name: lastName || '',
+      email,
+      phone: null,
+      created_dt: new Date(),
+      email_verified: 1, // Google email is already verified
+      phone_verified: 0,
+      password: null, // ❗ No password for Google SSO
+      google_id: googleId,
+      role: 'Testing',
+      agency_id: 0,
+    };
+    user = await this.authService.createUser(userCreatePayload);
+  }
+  user = await this.authService.findByEmail(email);
+  // 5️⃣ Generate JWT
+  const accessToken = this.authService.generateJwt(user);
+
+  // 6️⃣ Response for frontend
+  return {
+    accessToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: `${user.first_name} ${user.last_name}`.trim(),
+      picture,
+      role: user.role,
+    },
+  };
+}
+  // async googleLogin(@Body('token') token: string) {
+  //   const profile = await this.googleAuthService.verifyToken(token);
+  //   return this.authService.googleLogin(profile);
+  // }
+  // async googleLogin(@Body('token') token: string) {
+  //   const payload = await this.googleAuthService.verifyToken(token);
+    
+  //   return payload;
+  // }
 
   //trade  :
   @Get('google/callback')
@@ -224,7 +292,10 @@ async googleCallback(@Req() req, @Res() res) {
   console.log(user,'user details')
   const token = this.authService.generateTokens(user);
   return res.redirect(
-    `http://localhost:8080/cms/google-success?token=${token}`
+    // `http://localhost:8080/cms/google-success?token=${token}`
+    `http://34.31.149.20/ams-tools-cms/google-success?token=${token}`
+    
+
   );
 }
 

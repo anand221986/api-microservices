@@ -48,13 +48,14 @@ async function bootstrap() {
   });
 
   // -------------------- CORS --------------------
-  const LOCAL_HOSTS = ['localhost', '34.31.149.20'];
+  const LOCAL_HOSTS = ['localhost', '34.31.149.20','http://api.amyntasmedia.com/'];
   const PORTS = ['8080', '8081','3002'];
   const origins = [
   ...LOCAL_HOSTS.flatMap(host =>
     PORTS.map(port => `http://${host}:${port}`)
   ),
-  'http://34.31.149.20', // no port
+  'http://34.31.149.20',
+  'http://api.amyntasmedia.com', // no port
 ];
 app.enableCors({
   origin: (origin, callback) => {
@@ -62,7 +63,8 @@ app.enableCors({
     const allowedPatterns = [
       /^http:\/\/localhost:\d+$/,
       /^http:\/\/10\.216\.221\.3:\d+$/,
-      /^http:\/\/72\.61\.229\.100(:\d+)?$/,
+      // /^http:\/\/72\.61\.229\.100(:\d+)?$/,
+      /^http:\/\/api\.amyntasmedia\.com$/,
     ];
     const isAllowed = allowedPatterns.some(pattern =>
       pattern.test(origin)
