@@ -1,7 +1,10 @@
 import {
   Injectable,
   BadRequestException,
-  UnauthorizedException
+  UnauthorizedException,
+  InternalServerErrorException,
+  NotFoundException
+  
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as jwt from 'jsonwebtoken';
@@ -431,10 +434,14 @@ generateTokens(user: {
   generateJwt(user: {
     id: number | string;
     email: string;
+    name:string;
+    first_name:string;
+    last_name:string;
     role?: string | string[];
   }): string {
     const payload = {
       sub: user.id,
+      name:`${user.first_name} ${user.last_name}`,
       email: user.email,
       role: user.role ?? "USER",
     };
@@ -460,6 +467,77 @@ generateTokens(user: {
   `);
 
   return users?.length ? users[0] : null;
+}
+
+async updateUserGoogleTokens(
+  userId: number,
+  payload: {
+    google_access_token?: string | null;
+    google_refresh_token?: string;
+    google_token_expiry?: Date | null;
+  },
+) {
+  try {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let index = 1;
+
+    if (payload.google_access_token !== undefined) {
+      fields.push(`google_access_token = $${index++}`);
+      values.push(payload.google_access_token);
+    }
+
+    if (payload.google_refresh_token !== undefined) {
+      fields.push(`google_refresh_token = $${index++}`);
+      values.push(payload.google_refresh_token);
+    }
+
+    if (payload.google_token_expiry !== undefined) {
+      fields.push(`google_token_expiry = $${index++}`);
+      values.push(payload.google_token_expiry);
+    }
+
+    // 🚫 Nothing to update
+    if (!fields.length) {
+      return this.utilService.successResponse(
+        null,
+        'No Google token fields provided for update.',
+      );
+    }
+
+    // 🔹 Always update timestamp
+    fields.push(`updated_dt = NOW()`);
+
+    // 🔹 Update + existence check via RETURNING
+    const query = `
+      UPDATE users
+      SET ${fields.join(', ')}
+      WHERE id = $${index}
+      RETURNING *;
+    `;
+    values.push(userId);
+
+    const result = await this.dbService.executeQuery(query, values);
+
+    // ❌ User not found
+    if (!result || !result.length) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedUser = result[0];
+
+    return this.utilService.successResponse(
+      updatedUser,
+      'User Google tokens updated successfully.',
+    );
+  } catch (error) {
+    console.error('Error updating Google tokens:', error);
+    throw error instanceof NotFoundException
+      ? error
+      : new InternalServerErrorException(
+          'Failed to update Google tokens',
+        );
+  }
 }
 
 }

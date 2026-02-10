@@ -83,6 +83,10 @@ export class UpdateEmailSignatureDto {
 
   @IsOptional()
   @IsString()
+  last_name?: string;
+
+  @IsOptional()
+  @IsString()
   designation?: string;
 
   @IsOptional()
@@ -103,6 +107,10 @@ export class UpdateEmailSignatureDto {
 
   @IsOptional()
   @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
   logo_url?: string;
 
   @IsOptional()
@@ -112,4 +120,29 @@ export class UpdateEmailSignatureDto {
   @IsOptional()
   @IsString()
   custom_html?: string;
+
+  @IsOptional()
+  @IsString()
+  template_id?: string;
+
+  // ⚠️ must be stringified JSON
+  @IsOptional()
+  social_links?: {
+    twitter?: string;
+    youtube?: string;
+    facebook?: string;
+    linkedin?: string;
+    instagram?: string;
+  };
+  @IsOptional()
+  @IsString()
+  platform?: string;
+  @IsOptional()
+  id:number;
+  @IsOptional()
+  user_id:number;
+
+  @IsOptional()
+  @IsString()
+  mobile?: string;
 }

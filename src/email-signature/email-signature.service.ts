@@ -2,7 +2,8 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
-  ForbiddenException
+  ForbiddenException,
+  HttpException,
 } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { UtilService } from '../util/util.service';
@@ -66,6 +67,9 @@ export class EmailSignatureService {
       );
     } catch (error) {
       console.error(error);
+      if (error instanceof HttpException) {
+      throw error; // rethrow 403, 400, etc
+    }
       throw new InternalServerErrorException('Failed to create email signature');
     }
   }
@@ -147,9 +151,7 @@ export class EmailSignatureService {
     async getSignatures(userId: number) {
     const query = `SELECT  * FROM email_signatures WHERE user_id = $1`;
     const result = await this.dbService.executeQuery(query, [userId]);
-    if (!result.length) {
-      throw new NotFoundException('No email signatures found for this user');
-    }
+  
     return result;
   }
 }

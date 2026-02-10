@@ -372,6 +372,15 @@ this.NODE_ENVIRONMENT = this.config.get<string>('NODE_ENV', 'local');
     .digest('base64');
 }
 
+ replaceVariables(template: string, variables: Record<string, string>) {
+    let output = template;
+    for (const key in variables) {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      output = output.replace(regex, variables[key]);
+    }
+    return output;
+  }
+
 
   
 }

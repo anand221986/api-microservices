@@ -12,6 +12,7 @@ import { JwtStrategy } from '../jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { GoogleAuthModule } from './google-auth.module';
+import { GmailService } from './gmail.service';
 
 @Module({
     imports: [
@@ -28,7 +29,7 @@ import { GoogleAuthModule } from './google-auth.module';
         AuthGuard, 
         UserService, 
         UtilService, 
-        DbService,JwtStrategy,GoogleStrategy,
+        DbService,JwtStrategy,GoogleStrategy,GmailService,
     ],
     exports: [AuthGuard, AuthService],
 })
