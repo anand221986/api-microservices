@@ -209,7 +209,8 @@ export class AuthService {
       email,
       password,
       agency_id,
-      status,role
+      status,role,plan
+
     FROM users
     WHERE email = '${email}'
     LIMIT 1
@@ -263,6 +264,8 @@ console.log(hash);
     email: user.email,
     role:user.role,
     agency_id: user.agency_id,
+     subscription: user.plan,
+
   };
 
   // 5. Generate tokens
@@ -466,6 +469,11 @@ generateTokens(user: {
     LIMIT 1
   `);
 
+  return users?.length ? users[0] : null;
+}
+async findById(userId: number) {
+ const query = `SELECT id, first_name, last_name, email, password, agency_id, status, role, google_access_token, google_refresh_token, google_token_expiry FROM users WHERE id = ${Number(userId)} LIMIT 1`;
+  const users = await this.dbService.execute(query);
   return users?.length ? users[0] : null;
 }
 

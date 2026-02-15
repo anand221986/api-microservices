@@ -257,5 +257,11 @@ export class CreateUserDto {
   @IsOptional()
   agency_id?: string;
 }
+export class UpgradeUserDto {
+  @IsString()
+  userId: string; // or number depending on your DB
+  @IsString()
+  plan: string;   // e.g., "Pro", "Enterprise"
+}
 
 

@@ -12,7 +12,7 @@ import {
 import { Response } from "express";
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam } from "@nestjs/swagger";
 import { UserService } from "./user.service";
-import { UpdateUserDto,CreateUserDto } from './user.dto';
+import { UpdateUserDto,CreateUserDto,UpgradeUserDto } from './user.dto';
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -197,5 +197,10 @@ console.log(body)
    @Post('createUser')
   async createUser(@Body() body: CreateUserDto) {
     return this.service.createUser(body);
+  }
+
+   @Post('upgrade')
+  async upgradeUser(@Body() body: UpgradeUserDto) {
+    return this.service.upgradeUser(body);
   }
 }

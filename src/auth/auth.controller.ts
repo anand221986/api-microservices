@@ -1,6 +1,7 @@
 import { Controller, Get, HttpStatus, Post, Req, Res, UseGuards, Body, BadRequestException, Param, Query } from "@nestjs/common";
 import { Response } from "express";
-import { AuthGuard } from "@nestjs/passport";
+// import { AuthGuard } from "@nestjs/passport";
+import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
 import { OAuth2Client } from 'google-auth-library';
 import { UtilService } from 'src/util/util.service';
@@ -22,10 +23,10 @@ export class AuthController {
   ) {
     this.googleClient = new OAuth2Client();
     this.oAuth2Client = new OAuth2Client(
-      '1042994757383-ra2u6memdacvegf51krbg95fn5ret1ef.apps.googleusercontent.com',
-      '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',
-      // 'http://localhost:3002/auth/google/redirect' // must match Google Cloud redirect URI
-       'http://api.amyntasmedia.com/auth/google/redirect' 
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URL
+
     );
   }
   @Post('signup')
@@ -97,61 +98,51 @@ export class AuthController {
 
     try {
       const { tokens } = await this.oAuth2Client.getToken(code);
-       const {
-      access_token,
-      refresh_token,
-      expiry_date,
-      id_token,
-    } = tokens;
-     // ✅ Guard 1: id_token
-    if (!id_token) {
-      return res.status(400).json({
-        error: 'Google ID token not received',
+      const {
+        access_token,
+        refresh_token,
+        expiry_date,
+        id_token,
+      } = tokens;
+      // ✅ Guard 1: id_token
+      if (!id_token) {
+        return res.status(400).json({
+          error: 'Google ID token not received',
+        });
+      }
+      // 1️⃣ Verify ID token to get user info
+      const payload = await this.googleAuthService.verifyToken(id_token);
+
+      // ✅ Guard 2: payload
+      if (!payload || !payload.email) {
+        return res.status(400).json({
+          error: 'Invalid Google token payload',
+        });
+      }
+
+      const email = payload.email;
+
+      this.oAuth2Client.setCredentials(tokens);
+      const user = await this.authService.findByEmail(email);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      // 3️⃣ Encrypt refresh token (ONLY if exists)
+      const encryptedRefreshToken = refresh_token
+        ? encrypt(refresh_token)
+        : user.google_refresh_token; // keep old one
+      await this.authService.updateUserGoogleTokens(user.id, {
+        google_access_token: access_token,
+        google_refresh_token: encryptedRefreshToken,
+        google_token_expiry: expiry_date
+          ? new Date(expiry_date)
+          : null,
       });
-    }
-     // 1️⃣ Verify ID token to get user info
-    const payload = await this.googleAuthService.verifyToken(id_token);
-    
-    // ✅ Guard 2: payload
-    if (!payload || !payload.email) {
-      return res.status(400).json({
-        error: 'Invalid Google token payload',
-      });
-    }
 
-    const email = payload.email;
-
-    this.oAuth2Client.setCredentials(tokens);
- const user = await this.authService.findByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-     // 3️⃣ Encrypt refresh token (ONLY if exists)
-    const encryptedRefreshToken = refresh_token
-      ? encrypt(refresh_token)
-      : user.google_refresh_token; // keep old one
-      // Normally, you'd store these tokens securely in DB
-       // 4️⃣ Save tokens
-    await this.authService.updateUserGoogleTokens(user.id, {
-      google_access_token: access_token,
-      google_refresh_token: encryptedRefreshToken,
-      google_token_expiry: expiry_date
-        ? new Date(expiry_date)
-        : null,
-    });
-
-    return res.redirect(
-      // `http://34.31.149.20/ams-tools-cms/google-success`,
-       `http://localhost:8080/ams-tools-cms/google-success`,
-    );
-      // return res.json({
-      //   message: 'Google OAuth successful',
-      //   access_token: tokens.access_token,
-      //   refresh_token: tokens.refresh_token,
-      //   expiry_date: tokens.expiry_date,
-      // });
+      return res.redirect(
+        `http://localhost:8080/ams-tools-cms/connect-success`,
+      );
     } catch (error) {
-      console.error('Error during Google OAuth:', error);
       return res.status(500).json({ error: 'OAuth2 token exchange failed' });
     }
   }
@@ -198,30 +189,27 @@ export class AuthController {
       user = await this.authService.createUser(userCreatePayload);
     }
     user = await this.authService.findByEmail(email);
-    // 5️⃣ Generate JWT
     const accessToken = this.authService.generateJwt(user);
-    // 6️⃣ Response for frontend
     return {
       accessToken,
-      // googleAccessToken: token,
       user: {
         id: user.id,
         email: user.email,
         name: `${user.first_name} ${user.last_name}`.trim(),
         picture,
         role: user.role,
+        subscription: user.plan,
       },
     };
   }
   @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
+@UseGuards(AuthGuard)
   async googleCallback(@Req() req, @Res() res) {
     const user = req.user;
     console.log(user, 'user details')
     const token = this.authService.generateTokens(user);
     return res.redirect(
-     `http://localhost:8080/ams-tools-cms/google-success?token=${token}`
-     // `http://34.31.149.20/ams-tools-cms/google-success?token=${token}`
+      `http://localhost:8080/ams-tools-cms/google-success?token=${token}`
     );
   }
   //METHOD TO SEND  TEST EMAIL 
@@ -244,15 +232,26 @@ export class AuthController {
     if (!accessToken) {
       throw new BadRequestException('Access token is required');
     }
-    await this.gmailService.sendMail(
-      accessToken,
-      to,
-      subject,
-      html,
-    );
+   const result = await this.gmailService.sendMail(
+  accessToken,
+  to,
+  subject,
+  html,
+);
     return {
       status: true,
       message: 'Email sent successfully',
+    };
+  }
+  @UseGuards(AuthGuard)
+  @Get("google/status")
+  async getGoogleStatus(@Req() req) {
+    console.log("REQ USER:", req.user);
+    console.log("REQ HEADERS:", req.headers)
+    const userId = req.user.userId; // from JWT / session
+    const user = await this.authService.findById(userId);
+    return {
+      connected: !!user.google_access_token,
     };
   }
 }

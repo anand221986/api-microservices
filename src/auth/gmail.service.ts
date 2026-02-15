@@ -30,11 +30,13 @@ export class GmailService {
       .replace(/\//g, "_")
       .replace(/=+$/, "");
 
-    await gmail.users.messages.send({
+ const response = await gmail.users.messages.send({
       userId: "me",
       requestBody: {
         raw: message,
       },
     });
+
+    return response.data; // ✅ IMPORTANT
   }
 }

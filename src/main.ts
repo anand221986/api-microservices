@@ -10,11 +10,12 @@ import { ClusterService } from './services/cluster/cluster.service';
 import { join } from 'path';
 dotenv.config();
 async function bootstrap() {
-  console.log(process.env.PORT )
+console.time("AppBootstrap");
   // cast app to NestExpressApplication
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+  console.timeEnd("AppBootstrap");
 // Increase payload limit to 10MB (or whatever you need)
   app.useBodyParser('json', { limit: '10mb' });
   app.useBodyParser('urlencoded', { extended: true, limit: '10mb' });

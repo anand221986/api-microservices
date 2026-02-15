@@ -64,7 +64,7 @@ export class CreateEmailSignatureDto {
   @Expose({ name: 'logoBase64' })
   @IsOptional()
   @IsString()
-  logo_base64?: string;
+  logoBase64?: string;
 
   @Expose({ name: 'customHTML' })
   @IsOptional()
@@ -74,6 +74,8 @@ export class CreateEmailSignatureDto {
   @IsOptional()
   @IsInt()
   id?: number;
+  @IsOptional()
+  is_default?:boolean;
 }
 
 export class UpdateEmailSignatureDto {
@@ -115,7 +117,7 @@ export class UpdateEmailSignatureDto {
 
   @IsOptional()
   @IsString()
-  logo_base64?: string;
+  logoBase64?: string;
 
   @IsOptional()
   @IsString()
@@ -145,4 +147,7 @@ export class UpdateEmailSignatureDto {
   @IsOptional()
   @IsString()
   mobile?: string;
+  @IsOptional()
+  is_default?:boolean;
+
 }

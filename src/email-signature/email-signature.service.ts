@@ -26,7 +26,7 @@ export class EmailSignatureService {
     try {
     // const isPro = await this.usersService.isPro(dto.user_id);
     const isPro = true;
-    if (isPro) {
+    if (!isPro) {
       // Free plan allows only 1 signature
       const existingSignatures = await this.getSignatures(dto.user_id);
       if (existingSignatures.length >= 1) {
@@ -37,10 +37,10 @@ export class EmailSignatureService {
     user_id, name, last_name, designation, company,
     phone, mobile, email, website, address,
     template_id, social_links, platform,
-    logo_url, logo_base64, custom_html
+    logo_url, logo_base64, custom_html,is_default
   )
   VALUES
-  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
   RETURNING *;`;
     const values = [
   dto.user_id,
@@ -57,8 +57,9 @@ export class EmailSignatureService {
   dto.socialLinks ? JSON.stringify(dto.socialLinks) : null,
   dto.platform,
   dto.logo_url,
-  dto.logo_base64,
+  dto.logoBase64,
   dto.custom_html,
+ !!dto.is_default 
 ];
  const [signature] = await this.dbService.executeQuery(query, values);
       return this.utilService.successResponse(
@@ -125,7 +126,7 @@ export class EmailSignatureService {
   // 📌 GET BY USER
   async findByUser(userId: number) {
     const query = `
-      SELECT * FROM email_signatures
+      SELECT *,logo_base64 as logoBase64 FROM email_signatures
       WHERE user_id = $1
       ORDER BY updated_at DESC
     `;

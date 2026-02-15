@@ -4,9 +4,10 @@ import { UtilService } from "../util/util.service";
 import { AuthService } from "../auth/auth.service"
 const bcrypt = require("bcryptjs");
 import * as jwt from 'jsonwebtoken';
-import { UpdateUserDto } from './user.dto';
+import { UpdateUserDto,UpgradeUserDto } from './user.dto';
 import { CognitoUtil } from '../util/cognito.util';
 import { ConfigService } from "@nestjs/config";
+import { PaymentService } from "../payment/payment.service"
 
 @Injectable()
 export class UserService {
@@ -14,6 +15,7 @@ export class UserService {
   constructor(private readonly configService: ConfigService,
     public dbService: DbService,
     public utilService: UtilService,
+    // public paymentService:PaymentService,
     @Inject(forwardRef(() => AuthService)) public AuthService: AuthService
     
   ) {
@@ -417,6 +419,51 @@ async isPro(userId: number): Promise<boolean> {
   const plan = await this.getUserPlan(userId);
   return plan === 'pro';
 }
+async upgradeUser(body: UpgradeUserDto) {
+    const { userId, plan } = body;
+
+    // 1️⃣ Check if user exists (dummy here, replace with DB call)
+    const existingUser = { id: userId, subscription: 'Free' }; // Replace with DB query
+    if (!existingUser) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // 2️⃣ Payment Integration Placeholder
+    try {
+      // Uncomment & integrate when credentials are ready
+      // const paymentResult = await this.paymentService.createPayment({
+      //   userId,
+      //   plan,
+      //   amount: this.getPlanAmount(plan),
+      // });
+      // if (!paymentResult.success) throw new Error('Payment failed');
+
+      // ✅ Dummy response until payment credentials are live
+      console.log(`Payment processed for user ${userId}, plan ${plan}`);
+      const paymentResult = { success: true, transactionId: 'dummy-12345' };
+    } catch (error) {
+      console.error('Payment gateway error:', error);
+      throw new Error('Payment failed. Try again later.');
+    }
+
+    // 3️⃣ Update user's subscription in DB (dummy update)
+    // Replace with: await this.dbService.update('users', userId, { subscription: plan });
+    const updatedUser = { ...existingUser, subscription: plan };
+
+    // 4️⃣ Return response
+    return {
+      success: true,
+      message: `User upgraded to ${plan} successfully.`,
+      user: updatedUser,
+    };
+  }
+
+  // Optional helper to get plan amount
+  private getPlanAmount(plan: string) {
+    const prices = { Free: 0, Pro: 3, Enterprise: 10 };
+    return prices[plan] || 0;
+  }
+
 
 }
 
