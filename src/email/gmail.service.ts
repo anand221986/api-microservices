@@ -15,9 +15,9 @@ export class GmailService {
     private readonly dbService: DbService,
   ) {
     this.oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
-      process.env.GMAIL_REDIRECT_URI,
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URL,
     );
 
   }
@@ -76,7 +76,7 @@ export class GmailService {
     to,
     subject,
     body,
-  }: SendMailOptions): Promise<void> {
+  }: SendMailOptions): Promise<string | null | undefined> {
 
     const accessToken =
       await this.refreshAccessToken(userId);
@@ -109,13 +109,20 @@ export class GmailService {
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
+ const response = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: {
+      raw: encodedMessage,
+    },
+  });
 
-    await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedMessage,
-      },
-    });
+  const messageId = response.data.id;
+
+  if (!messageId) {
+    throw new Error('Failed to retrieve Gmail messageId');
+  }
+
+  return messageId;
 
   }
 
