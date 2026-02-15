@@ -48,4 +48,14 @@ export class CreateMailMergeJobDto {
   template_id: number;
   total: number;
 }
+// dto/send-mail.dto.ts
 
+export class MailMergeSendDto {
+
+  emails: string[];
+
+  subject: string;
+
+  body: string;
+
+}

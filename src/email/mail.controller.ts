@@ -192,4 +192,12 @@ async sendMergeMail(@Body() body: MailMergeSendDto) {
   return this.mailMergeService.sendMailMerge(body);
 }
 
+@Post('start-merge')
+ async startMailMerge(@Body() body: MailMergeSendDto) {
+    const job= await this.mailMergeService.startMailMerge(body);
+    return {
+      message: 'Mail job queued successfully',
+      jobId: job.jobId
+    };
+  }
 }

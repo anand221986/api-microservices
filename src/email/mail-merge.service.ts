@@ -4,9 +4,12 @@ import { SendMailMergeDto } from './mail-merged.dto';
 import { UtilService } from '../util/util.service';
 import { DbService } from '../db/db.service';
 import {  MailMergeSendDto } from './mail-merged.dto';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 @Injectable()
 export class MailMergeService {
-  constructor(private readonly dbService: DbService) {}
+  constructor(private readonly dbService: DbService, @InjectQueue('mail-queue')
+     private mailQueue: Queue,) {}
 
   async sendMailMerge(payload: MailMergeSendDto) {
     const recipientCount = payload.recipients.length;
@@ -62,8 +65,36 @@ export class MailMergeService {
     return {
       message: 'Mail merge job created successfully',
       jobId,
+      templateId:payload.templateId,
       totalRecipients: recipientCount,
       status: 'PENDING',
     };
   }
+  async startMailMerge(payload: MailMergeSendDto) {
+  /** 1️⃣ Save job + recipients in DB */
+  const jobData = await this.sendMailMerge(payload);
+  /** 2️⃣ Add to queue */
+  await this.mailQueue.add(
+    'send-mail',
+    {
+      jobId: jobData.jobId,
+      templateId:jobData.templateId
+    },
+    {
+      attempts: 5,
+      backoff: {
+        type: 'exponential',
+        delay: 5000,
+      },
+      removeOnComplete: true,
+      removeOnFail: false,
+    }
+  );
+
+  return {
+    message: 'Mail merge job created and queued',
+    jobId: jobData.jobId,
+    totalRecipients: jobData.totalRecipients
+  };
+}
 }

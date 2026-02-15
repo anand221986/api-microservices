@@ -1,15 +1,19 @@
 import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { SendMailMergeDto,UpdateEmailTemplateDto,CreateEmailTemplateDto,CreateMailMergeJobDto } from './mail-merge.dto';
+import { SendMailMergeDto,UpdateEmailTemplateDto,CreateEmailTemplateDto,CreateMailMergeJobDto,MailMergeSendDto } from './mail-merge.dto';
 import { UtilService } from '../util/util.service';
 import { DbService } from '../db/db.service';
 import * as csv from 'csv-parser';
 import { Readable } from 'stream';
 import * as fs from 'fs';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 
 @Injectable()
 export class MailService {
   constructor(
+     @InjectQueue('mail-queue')
+     private mailQueue: Queue,
     private readonly dbService: DbService,
     private readonly utilService: UtilService,
     private readonly mailerService: MailerService,
@@ -354,6 +358,25 @@ JOIN mail_templates mt
         ? error
         : new InternalServerErrorException('Failed to delete mail Merge');
     }
+  }
+
+    async createMailJob(body: MailMergeSendDto) {
+    const job = await this.mailQueue.add(
+      'send-mail',
+      body,
+      {
+        attempts: 5,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      }
+    );
+
+    return job;
+
   }
 }
 

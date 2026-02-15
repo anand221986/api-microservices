@@ -28,15 +28,27 @@ import { GmailImapService } from './util/gmail-imap.service';
 import { AuthModule } from './auth/auth.module';
 import { GoogleAuthService} from './auth/google-auth.service';
 import { GoogleAuthModule } from './auth/google-auth.module';
+import { BullModule } from '@nestjs/bullmq';
 /* Middleware */
 import { ApiMiddleware } from './middleware/api.middleware';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { EmailSignatureController } from './email-signature/email-signature.controller';
 import { EmailSignatureService } from './email-signature/email-signature.service';
 import { MailMergeService } from './email/mail-merge.service';
+import { EmailWorker } from './email/email.worker'
+import { GmailService } from './email/gmail.service';
+
 @Module({
   imports: [
-     
+        BullModule.forRoot({
+      connection: {
+        host: 'localhost', // Redis host
+        port: 6379,        // Redis port
+      },
+    }),
+    BullModule.registerQueue({
+      name: 'mail-queue', // queue name must match @Processor('mail-queue')
+    }),
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     AuthModule,
@@ -98,6 +110,8 @@ import { MailMergeService } from './email/mail-merge.service';
     GmailImapService,
     EmailSignatureService,
     MailMergeService,
+    EmailWorker,
+    GmailService
   ],
 })
 export class AppModule implements NestModule {
