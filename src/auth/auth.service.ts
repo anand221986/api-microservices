@@ -17,14 +17,14 @@ import { DbService } from "../db/db.service";
 import * as bcrypt from 'bcrypt';
 
 import { SESv2Client, CreateEmailIdentityCommand, GetEmailIdentityCommand } from "@aws-sdk/client-sesv2";
-import {
-  CognitoIdentityProviderClient,
-  SignUpCommand, InitiateAuthCommand,
-  ForgotPasswordCommand,
-  ConfirmForgotPasswordCommand,
-  AdminConfirmSignUpCommand,
-  AdminAddUserToGroupCommand
-} from '@aws-sdk/client-cognito-identity-provider';
+// import {
+//   CognitoIdentityProviderClient,
+//   SignUpCommand, InitiateAuthCommand,
+//   ForgotPasswordCommand,
+//   ConfirmForgotPasswordCommand,
+//   AdminConfirmSignUpCommand,
+//   AdminAddUserToGroupCommand
+// } from '@aws-sdk/client-cognito-identity-provider';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +33,7 @@ export class AuthService {
   private readonly apiKey: string;
   private readonly clientId: string;
   private readonly clientSecret: string;
-  private readonly cognitoClient: CognitoIdentityProviderClient;
+  // private readonly cognitoClient: CognitoIdentityProviderClient;
   constructor(
     private readonly config: ConfigService,
     // private readonly userService: UserService,
@@ -52,115 +52,115 @@ export class AuthService {
     this.ses = new SESv2Client({
       region: this.config.get<string>('AWS_REGION') || "eu-north-1",
     });
-    this.cognitoClient = new CognitoIdentityProviderClient({
-      region: this.config.get<string>('AWS_REGION') || 'eu-north-1',
-      credentials: {
-        accessKeyId: this.config.get<string>('AWS_ACCESS_KEY_ID')!,
-        secretAccessKey: this.config.get<string>('AWS_SECRET_ACCESS_KEY')!,
-      },
-    });
+    // this.cognitoClient = new CognitoIdentityProviderClient({
+    //   region: this.config.get<string>('AWS_REGION') || 'eu-north-1',
+    //   credentials: {
+    //     accessKeyId: this.config.get<string>('AWS_ACCESS_KEY_ID')!,
+    //     secretAccessKey: this.config.get<string>('AWS_SECRET_ACCESS_KEY')!,
+    //   },
+    // });
   }
 
   //sign up code with cognito 
-  async signUp(request: { email: string; password: string; name: string, phone_number: string, role: string, agency_id: number }): Promise<any> {
-    const { email, password, name, phone_number, role, agency_id } = request;
-    const secretHash = this.utilService.generateSecretHash(email, this.clientId, this.clientSecret);
-    const hashedPassword = await bcrypt.hash(password, 10); // 10 is the salt rounds
-    const command = new SignUpCommand({
-      ClientId: this.clientId,
-      Username: email,
-      Password: password,
-      SecretHash: secretHash,
-      UserAttributes: [
-        {
-          Name: 'email',
-          Value: request.email,
-        },
-        {
-          Name: 'name',
-          Value: request.name,
-        },
-        {
-          Name: 'phone_number',
-          Value: "+917043097908", // Use E.164 format. Example: +11234567890 for US.
-        },
-      ],
-      // MessageAction: 'SUPPRESS'
-    });
-    try {
-      const response = await this.cognitoClient.send(command);
-      //confirm the user instant 
-      const confirmCommand = new AdminConfirmSignUpCommand({
-        UserPoolId: this.config.get<string>('COGNITO_USER_POOL_ID')!,
-        Username: email,
-      });
-      let confirmResult = await this.cognitoClient.send(confirmCommand);
-      console.log('Cognito user confirmed successfully:', confirmResult);
-      // 3️⃣ Add user to Cognito group
-      const groupName = role; // assuming you want to use `role` as group name
-      const addToGroupCommand = new AdminAddUserToGroupCommand({
-        UserPoolId: this.config.get<string>('COGNITO_USER_POOL_ID')!,
-        Username: email,
-        GroupName: groupName,
-      });
-      await this.cognitoClient.send(addToGroupCommand);
-      console.log(`User added to group "${groupName}"`);
-      // 4️⃣ SES Email Verification
-      try {
-        const getCmd = new GetEmailIdentityCommand({
-          EmailIdentity: email,
-        });
-        const result = await this.ses.send(getCmd);
-        console.log(result, 'result')
-        if (result.VerificationStatus === "PENDING") {
-          console.log(`⌛ ${email} verification is still pending.`);
-        } if (result.VerificationStatus === "FAILED") {
-          console.log(`${email} verification failed. You may need to re-verify.`);
-        }
-       console.log(`${email} status: ${result.VerificationStatus}`);
+  // async signUp(request: { email: string; password: string; name: string, phone_number: string, role: string, agency_id: number }): Promise<any> {
+  //   const { email, password, name, phone_number, role, agency_id } = request;
+  //   const secretHash = this.utilService.generateSecretHash(email, this.clientId, this.clientSecret);
+  //   const hashedPassword = await bcrypt.hash(password, 10); // 10 is the salt rounds
+  //   const command = new SignUpCommand({
+  //     ClientId: this.clientId,
+  //     Username: email,
+  //     Password: password,
+  //     SecretHash: secretHash,
+  //     UserAttributes: [
+  //       {
+  //         Name: 'email',
+  //         Value: request.email,
+  //       },
+  //       {
+  //         Name: 'name',
+  //         Value: request.name,
+  //       },
+  //       {
+  //         Name: 'phone_number',
+  //         Value: "+917043097908", // Use E.164 format. Example: +11234567890 for US.
+  //       },
+  //     ],
+  //     // MessageAction: 'SUPPRESS'
+  //   });
+  //   try {
+  //     const response = await this.cognitoClient.send(command);
+  //     //confirm the user instant 
+  //     const confirmCommand = new AdminConfirmSignUpCommand({
+  //       UserPoolId: this.config.get<string>('COGNITO_USER_POOL_ID')!,
+  //       Username: email,
+  //     });
+  //     let confirmResult = await this.cognitoClient.send(confirmCommand);
+  //     console.log('Cognito user confirmed successfully:', confirmResult);
+  //     // 3️⃣ Add user to Cognito group
+  //     const groupName = role; // assuming you want to use `role` as group name
+  //     const addToGroupCommand = new AdminAddUserToGroupCommand({
+  //       UserPoolId: this.config.get<string>('COGNITO_USER_POOL_ID')!,
+  //       Username: email,
+  //       GroupName: groupName,
+  //     });
+  //     await this.cognitoClient.send(addToGroupCommand);
+  //     console.log(`User added to group "${groupName}"`);
+  //     // 4️⃣ SES Email Verification
+  //     try {
+  //       const getCmd = new GetEmailIdentityCommand({
+  //         EmailIdentity: email,
+  //       });
+  //       const result = await this.ses.send(getCmd);
+  //       console.log(result, 'result')
+  //       if (result.VerificationStatus === "PENDING") {
+  //         console.log(`⌛ ${email} verification is still pending.`);
+  //       } if (result.VerificationStatus === "FAILED") {
+  //         console.log(`${email} verification failed. You may need to re-verify.`);
+  //       }
+  //      console.log(`${email} status: ${result.VerificationStatus}`);
        
-      } catch (sesErr) {
-        if (sesErr.name === "AlreadyExistsException") {
-          console.log("Email identity already exists, skipping verification");
-        }
-        if (sesErr.name !== "NotFoundException") {
-             try {
-        //case when email id not found in  ses 
-      const verifyCmd = new CreateEmailIdentityCommand({
-        EmailIdentity: email,
-      });
-      await this.ses.send(verifyCmd);
-      console.log(`📧 SESv2 verification email sent to ${email}`);
-    } catch (createErr) {
-      console.error(`❌ SES verification failed for ${email}`, createErr);
-    }   console.error(`Failed to check email identity for ${email}`, sesErr);
-          // return;
-        }
-      }
-      const [firstName, ...lastNameParts] = name.split(' ');
-      const lastName = lastNameParts.join(' ');
-      const usercreatePayload = {
-        first_name: firstName,
-        last_name: lastName || '',
-        email,
-        phone: phone_number,
-        created_dt: new Date(),
-        email_verified: 0,
-        phone_verified: 0,
-        password: hashedPassword,
-        cognitoId: response.UserSub,// Add this
-        role: role,
-        agency_id: agency_id
-      };
-      // Optional DB sync
-      return await this.createUser(usercreatePayload);
-    } catch (error) {
-      if (error.name === 'UsernameExistsException') {
-        throw new BadRequestException('User already exists');
-      }
-      throw new BadRequestException(error.message || 'Signup failed');
-    }
-  }
+  //     } catch (sesErr) {
+  //       if (sesErr.name === "AlreadyExistsException") {
+  //         console.log("Email identity already exists, skipping verification");
+  //       }
+  //       if (sesErr.name !== "NotFoundException") {
+  //            try {
+  //       //case when email id not found in  ses 
+  //     const verifyCmd = new CreateEmailIdentityCommand({
+  //       EmailIdentity: email,
+  //     });
+  //     await this.ses.send(verifyCmd);
+  //     console.log(`📧 SESv2 verification email sent to ${email}`);
+  //   } catch (createErr) {
+  //     console.error(`❌ SES verification failed for ${email}`, createErr);
+  //   }   console.error(`Failed to check email identity for ${email}`, sesErr);
+  //         // return;
+  //       }
+  //     }
+  //     const [firstName, ...lastNameParts] = name.split(' ');
+  //     const lastName = lastNameParts.join(' ');
+  //     const usercreatePayload = {
+  //       first_name: firstName,
+  //       last_name: lastName || '',
+  //       email,
+  //       phone: phone_number,
+  //       created_dt: new Date(),
+  //       email_verified: 0,
+  //       phone_verified: 0,
+  //       password: hashedPassword,
+  //       cognitoId: response.UserSub,// Add this
+  //       role: role,
+  //       agency_id: agency_id
+  //     };
+  //     // Optional DB sync
+  //     return await this.createUser(usercreatePayload);
+  //   } catch (error) {
+  //     if (error.name === 'UsernameExistsException') {
+  //       throw new BadRequestException('User already exists');
+  //     }
+  //     throw new BadRequestException(error.message || 'Signup failed');
+  //   }
+  // }
 
   getToken(userId, userEmail) {
     const tokenCreationTime = Math.floor(Date.now() / 1000);
@@ -264,7 +264,7 @@ console.log(hash);
     email: user.email,
     role:user.role,
     agency_id: user.agency_id,
-     subscription: user.plan,
+    subscription: user.plan,
 
   };
 
@@ -290,116 +290,210 @@ console.log(hash);
 }
 
 
-  async forgotPassword(email: string): Promise<any> {
-    const secretHash = this.utilService.generateSecretHash(email, this.clientId, this.clientSecret);
+  // async forgotPassword(email: string): Promise<any> {
+  //   const secretHash = this.utilService.generateSecretHash(email, this.clientId, this.clientSecret);
 
-    const command = new ForgotPasswordCommand({
-      ClientId: this.clientId,
-      Username: email,
-      SecretHash: secretHash,
-    });
+  //   const command = new ForgotPasswordCommand({
+  //     ClientId: this.clientId,
+  //     Username: email,
+  //     SecretHash: secretHash,
+  //   });
 
-    try {
-      const response = await this.cognitoClient.send(command);
-      return {
-        success: true,
-        message: 'Password reset code sent to your email',
-        codeDeliveryDetails: response.CodeDeliveryDetails
-      };
-    } catch (err) {
-      console.error('Cognito forgot password error:', err);
-      throw new BadRequestException(err.message || 'Failed to initiate password reset');
-    }
-  }
+  //   try {
+  //     const response = await this.cognitoClient.send(command);
+  //     return {
+  //       success: true,
+  //       message: 'Password reset code sent to your email',
+  //       codeDeliveryDetails: response.CodeDeliveryDetails
+  //     };
+  //   } catch (err) {
+  //     console.error('Cognito forgot password error:', err);
+  //     throw new BadRequestException(err.message || 'Failed to initiate password reset');
+  //   }
+  // }
 
-  async resetPassword(email: string, verificationCode: string, newPassword: string): Promise<any> {
-    const secretHash = this.utilService.generateSecretHash(email, this.clientId, this.clientSecret);
+  // async resetPassword(email: string, verificationCode: string, newPassword: string): Promise<any> {
+  //   const secretHash = this.utilService.generateSecretHash(email, this.clientId, this.clientSecret);
 
-    const command = new ConfirmForgotPasswordCommand({
-      ClientId: this.clientId,
-      Username: email,
-      ConfirmationCode: verificationCode,
-      Password: newPassword,
-      SecretHash: secretHash,
-    });
+  //   const command = new ConfirmForgotPasswordCommand({
+  //     ClientId: this.clientId,
+  //     Username: email,
+  //     ConfirmationCode: verificationCode,
+  //     Password: newPassword,
+  //     SecretHash: secretHash,
+  //   });
 
-    try {
-      await this.cognitoClient.send(command);
-      return {
-        success: true,
-        message: 'Password has been reset successfully'
-      };
-    } catch (err) {
-      console.error('Cognito reset password error:', err);
-      throw new BadRequestException(err.message || 'Failed to reset password');
-    }
-  }
+  //   try {
+  //     await this.cognitoClient.send(command);
+  //     return {
+  //       success: true,
+  //       message: 'Password has been reset successfully'
+  //     };
+  //   } catch (err) {
+  //     console.error('Cognito reset password error:', err);
+  //     throw new BadRequestException(err.message || 'Failed to reset password');
+  //   }
+  // }
 
 
-   async googleLogin(profile: any) {
+//    async googleLogin(profile: any) {
+//   const { email, given_name, family_name, sub } = profile;
+
+//   // 1️⃣ Fetch user from DB
+//   const users = await this.dbService.executeQuery(`
+//     SELECT
+//       id,
+//       first_name,
+//       last_name,
+//       email,
+//       role,
+//       status,
+//       google_id,
+//       provider
+//     FROM users
+//     WHERE email = $1
+//     LIMIT 1
+//   `, [email]);
+//   let user = users?.[0];
+//   // 2️⃣ Create user if not exists
+//   if (!user) {
+//     const insertResult = await this.dbService.executeQuery(`
+//       INSERT INTO users (
+//         email,
+//         first_name,
+//         last_name,
+//         google_id,
+//         provider,
+//         status,
+//         role
+//       )
+//       VALUES ($1, $2, $3, $4, $5, $6, $7)
+//       RETURNING
+//         id,
+//         email,
+//         first_name,
+//         last_name,
+//         role,
+//         status
+//     `, [
+//       email,
+//       given_name || '',
+//       family_name || '',
+//       sub,
+//       'google',
+//       1,          // active
+//       'user',     // default role
+//     ]);
+
+//     user = insertResult[0];
+//   }
+
+//   // 3️⃣ Generate JWT
+//   const payload = {
+//     sub: user.id,
+//     email: user.email,
+//     role: user.role,
+//   };
+// const accessToken = this.jwtService.sign(payload);
+//   // 4️⃣ Return response
+//   return {
+//     accessToken,
+//     user,
+//   };
+// }
+
+async googleLogin(profile: any) {
   const { email, given_name, family_name, sub } = profile;
-
-  // 1️⃣ Fetch user from DB
-  const users = await this.dbService.executeQuery(`
-    SELECT
-      id,
-      first_name,
-      last_name,
-      email,
-      role,
-      status,
-      google_id,
-      provider
-    FROM users
-    WHERE email = $1
-    LIMIT 1
-  `, [email]);
-  let user = users?.[0];
-  // 2️⃣ Create user if not exists
-  if (!user) {
-    const insertResult = await this.dbService.executeQuery(`
-      INSERT INTO users (
-        email,
-        first_name,
-        last_name,
-        google_id,
-        provider,
-        status,
-        role
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING
+  try {
+    // 1️⃣ Fetch user from DB
+    const users = await this.dbService.executeQuery(`
+      SELECT
         id,
-        email,
         first_name,
         last_name,
+        email,
         role,
-        status
-    `, [
-      email,
-      given_name || '',
-      family_name || '',
-      sub,
-      'google',
-      1,          // active
-      'user',     // default role
-    ]);
+        status,
+        google_id,
+        provider
+      FROM users
+      WHERE email = $1
+      LIMIT 1
+    `, [email]);
 
-    user = insertResult[0];
+    let user = users?.[0];
+
+    // 2️⃣ Create user if not exists
+    if (!user) {
+      const insertResult = await this.dbService.executeQuery(`
+        INSERT INTO users (
+          email,
+          first_name,
+          last_name,
+          google_id,
+          provider,
+          status,
+          role
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING
+          id,
+          email,
+          first_name,
+          last_name,
+          role,
+          status
+      `, [
+        email,
+        given_name || '',
+        family_name || '',
+        sub,
+        'google',
+        1,          // active
+        'user',     // default role
+      ]);
+
+      user = insertResult[0];
+    }
+
+    // 3️⃣ Ensure user has a plan
+    const plans = await this.dbService.executeQuery(`
+      SELECT id FROM user_plans WHERE user_id = $1 LIMIT 1
+    `, [user.id]);
+
+    if (!plans?.[0]) {
+      // Insert FREE plan with email limit
+      await this.dbService.executeQuery(`
+        INSERT INTO user_plans (user_id, plan_type, email_limit_per_day)
+        VALUES ($1, 'FREE', 20)
+      `, [user.id]);
+
+      // Initialize Mail Merge usage tracking
+      await this.dbService.executeQuery(`
+        INSERT INTO usage_tracking (user_id, feature_key, used_count)
+        VALUES ($1, 'mail_merge', 0)
+        ON CONFLICT (user_id, feature_key) DO NOTHING
+      `, [user.id]);
+    }
+
+    // 4️⃣ Generate JWT
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+    const accessToken = this.jwtService.sign(payload);
+
+    // 5️⃣ Return response
+    return {
+      accessToken,
+      user,
+    };
+
+  } catch (error) {
+    console.error('Error in googleLogin:', error);
+    throw new Error('Failed to login via Google SSO. Please try again.');
   }
-
-  // 3️⃣ Generate JWT
-  const payload = {
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-  };
-const accessToken = this.jwtService.sign(payload);
-  // 4️⃣ Return response
-  return {
-    accessToken,
-    user,
-  };
 }
 
 generateTokens(user: {
@@ -548,4 +642,50 @@ async updateUserGoogleTokens(
   }
 }
 
+// get userlicense 
+async getUserLicenses(userId: number) {
+  const query = `SELECT product, status, expiry_date FROM licenses  WHERE user_id = $1 AND status = 'active'`;
+  const result = await this.dbService.executeQuery(query, [userId]);
+  return result;
+}
+
+  async createEmailLimits(userId: number) {
+  const query = `
+    INSERT INTO public.email_limits (user_id, emails_sent_today, email_signatures_created_today)
+    VALUES ($1, 0, 0)
+    ON CONFLICT (user_id) DO NOTHING;
+  `;
+  
+  // Using your existing DB service
+  return await this.dbService.executeQuery(query, [userId]);
+}
+async createUserPlan(userId: number, planType: 'FREE' | 'MONTHLY' | 'YEARLY' = 'FREE') {
+  // Logic: Set limit to 20 for FREE, 1000 for others
+  const emailLimit = planType === 'FREE' ? 20 : 1000;
+  
+  const query = `
+    INSERT INTO public.user_plans (
+      user_id, 
+      plan_type, 
+      email_limit_per_day, 
+      start_date
+    )
+    VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id) 
+    DO UPDATE SET 
+      plan_type = EXCLUDED.plan_type,
+      email_limit_per_day = EXCLUDED.email_limit_per_day,
+      updated_at = CURRENT_TIMESTAMP;
+  `;
+
+  const values = [userId, planType, emailLimit];
+
+  try {
+    // Ensure you use your executeQuery or pool.query method here
+    return await this.dbService.executeQuery(query, values);
+  } catch (error) {
+    console.error('Error in createUserPlan service:', error);
+    throw error;
+  }
+}
 }

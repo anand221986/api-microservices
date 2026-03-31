@@ -124,6 +124,8 @@ async getTemplate(templateId?: number) {
   return templateId !== undefined ? result[0] : result;
 }
 
+getTemplatebyuserId
+
 
   // 📌 Delete templates
   async deleteTemplates(id: number) {
@@ -198,18 +200,14 @@ async getTemplate(templateId?: number) {
   }
 
   async createTemplate(dto: CreateEmailTemplateDto) {
-    const { name, subject, body } = dto;
-
+    const { name, subject, body,user_id } = dto;
     const query = `
-      INSERT INTO mail_templates (name, subject, body, created_at)
-      VALUES ($1, $2, $3, NOW())
-      RETURNING id, name, subject, body, created_at;
+      INSERT INTO mail_templates (name, subject, body,user_id, created_at)
+      VALUES ($1, $2, $3,$4, NOW())
+      RETURNING id, name, subject, body,user_id, created_at;
     `;
-
-    const values = [name, subject, body];
-
+    const values = [name, subject, body,user_id];
     const result = await this.dbService.executeQuery(query, values);
-
     return result[0];
   }
 
@@ -314,31 +312,36 @@ async createJob(dto: CreateMailMergeJobDto) {
   return job;
 }
 
-//get all jobs 
-async getAllJobs (jobId?: number) {
-    let query = `SELECT mmj.*,
-    mt.name AS template_name
-FROM mail_merge_jobs mmj
-JOIN mail_templates mt 
-    ON mt.id = mmj.template_id `;
-    const values: any[] = [];
-    if (jobId) {
-      query += ` WHERE id = $1 LIMIT 1`;
-      values.push(jobId);
-    } else {
-      query += ` ORDER BY created_at DESC`;
-    }
-    console.log(query)
-    const result = await this.dbService.executeQuery(query);
-    if (jobId && !result.length) {
-      throw new NotFoundException(
-        `Mail template with id ${jobId} does not exist`,
-      );
-    }
-    return result;
+ async getAllJobs(jobId?: number, userId?: number) {
+  let query = `
+    SELECT mmj.*, mt.name AS template_name
+    FROM mail_merge_jobs mmj
+    JOIN mail_templates mt ON mt.id = mmj.template_id
+  `;
+  
+  const values: any[] = [];
 
- 
+  // Logic for filtering
+  if (jobId) {
+    query += ` WHERE mmj.id = $1 `;
+    values.push(jobId);
+  } else if (userId) {
+    query += ` WHERE mmj.user_id = $1 `; // Assumes you have user_id in mail_merge_jobs
+    values.push(userId);
   }
+
+  query += ` ORDER BY mmj.created_at DESC `;
+
+  // IMPORTANT: You must pass the 'values' array here!
+  const result = await this.dbService.executeQuery(query, values);
+
+  // Error handling for single record search
+  if (jobId && result.length === 0) {
+    throw new NotFoundException(`Mail job with id ${jobId} does not exist`);
+  }
+
+  return result;
+}
 
   
   //delete Jobs
@@ -378,6 +381,114 @@ JOIN mail_templates mt
     return job;
 
   }
+
+  //getTemplates
+
+
+  async getTemplates(userId?: number) {
+  let query = `
+    SELECT id, name, subject, body, created_at
+    FROM mail_templates
+  `;
+  const values: any[] = [];
+  if (userId !== undefined) {
+    query += ` WHERE user_id = $1 `;
+    values.push(userId);
+  } else {
+    query += ` ORDER BY created_at DESC`;
+  }
+  const result = await this.dbService.executeQuery(query, values);
+  // if (userId !== undefined && !result.length) {
+  //   throw new NotFoundException(
+  //     `Mail template with id ${userId} does not exist`,
+  //   );
+  // }
+
+  // ✔ If ID → return object
+  // ✔ If no ID → return array
+  return userId !== undefined ? result : result;
+}
+
+
+async getByJobId (jobId?: number) {
+
+    const query = `
+      SELECT 
+        id,
+        job_id,
+        email,
+        variables,
+        status,
+        error,
+        message_id,
+        error_message,
+        created_at
+      FROM mail_merge_recipients
+      WHERE job_id = $1
+      ORDER BY created_at DESC
+    `;
+
+    const result = await this.dbService.executeQuery(query, [jobId]);
+    return result;
+
+}
+
+async getTemplateByUserId(userId: number) {
+  // We filter by user_id to ensure private templates stay private
+  const query = `
+    SELECT id, name, subject, body, created_at, user_id
+    FROM mail_templates
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+  `;
+
+  const values = [userId];
+
+  try {
+    const result = await this.dbService.executeQuery(query, values);
+
+    // If a user has no templates, we return an empty array [] 
+    // instead of throwing an error, so the UI doesn't crash.
+    return result || []; 
+  } catch (error) {
+    console.error(`Error fetching templates for user ${userId}:`, error);
+    throw new InternalServerErrorException('Failed to fetch user templates');
+  }
+}
+
+async getUsagelimitByuserId(userId: number) {
+    // SQL query targeting the columns from your provided schema
+    const query = `
+      SELECT 
+        user_id, 
+        emails_sent_today, 
+        email_signatures_created_today, 
+        last_reset_date 
+      FROM public.email_limits 
+      WHERE user_id = $1
+    `;
+
+    try {
+      const result = await this.dbService.executeQuery(query, [userId]);
+
+      // If the database returns an array, check if it has at least one row
+      if (result && result.length > 0) {
+        return result[0];
+      }
+
+      // Default fallback if no record exists for this user yet
+      return {
+        user_id: userId,
+        emails_sent_today: 0,
+        email_signatures_created_today: 0,
+        last_reset_date: new Date().toISOString().split('T')[0]
+      };
+    } catch (error) {
+      console.error(`Database error for user ${userId}:`, error);
+      throw new InternalServerErrorException('Could not retrieve usage data from database');
+    }
+  }
+
 }
 
  

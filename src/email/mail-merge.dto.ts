@@ -42,6 +42,9 @@ export class CreateEmailTemplateDto {
 
   @IsString()
   body: string;
+  @IsOptional()
+  user_id:number;
+
 }
 
 export class CreateMailMergeJobDto {

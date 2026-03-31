@@ -34,9 +34,9 @@ export class AuthController {
   @ApiBody({ type: SignUpDto })
   @ApiResponse({ status: 201, description: 'User signed up successfully' })
   @ApiResponse({ status: 400, description: 'Signup failed or input error' })
-  async signUp(@Body() signUpDto: SignUpDto) {
-    return this.authService.signUp(signUpDto);
-  }
+  // async signUp(@Body() signUpDto: SignUpDto) {
+  //   return this.authService.signUp(signUpDto);
+  // }
   @Post('signin')
   @ApiOperation({ summary: 'Authenticate user and return JWT tokens from Cognito' })
   @ApiBody({ type: SignInDto })
@@ -45,26 +45,26 @@ export class AuthController {
   async signIn(@Body() signInDto: SignInDto) {
     return this.authService.signIn(signInDto);
   }
-  @Post('forgot-password')
-  @ApiOperation({ summary: 'Initiate password reset process' })
-  @ApiBody({ type: ForgotPasswordDto })
-  @ApiResponse({ status: 200, description: 'Password reset code sent to email' })
-  @ApiResponse({ status: 400, description: 'Failed to initiate password reset' })
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(forgotPasswordDto.email);
-  }
-  @Post('reset-password')
-  @ApiOperation({ summary: 'Reset password using verification code' })
-  @ApiBody({ type: ResetPasswordDto })
-  @ApiResponse({ status: 200, description: 'Password reset successfully' })
-  @ApiResponse({ status: 400, description: 'Failed to reset password' })
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPassword(
-      resetPasswordDto.email,
-      resetPasswordDto.verificationCode,
-      resetPasswordDto.newPassword
-    );
-  }
+  // @Post('forgot-password')
+  // @ApiOperation({ summary: 'Initiate password reset process' })
+  // @ApiBody({ type: ForgotPasswordDto })
+  // @ApiResponse({ status: 200, description: 'Password reset code sent to email' })
+  // @ApiResponse({ status: 400, description: 'Failed to initiate password reset' })
+  // async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+  //   return this.authService.forgotPassword(forgotPasswordDto.email);
+  // }
+  // @Post('reset-password')
+  // @ApiOperation({ summary: 'Reset password using verification code' })
+  // @ApiBody({ type: ResetPasswordDto })
+  // @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  // @ApiResponse({ status: 400, description: 'Failed to reset password' })
+  // async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+  //   return this.authService.resetPassword(
+  //     resetPasswordDto.email,
+  //     resetPasswordDto.verificationCode,
+  //     resetPasswordDto.newPassword
+  //   );
+  // }
   @Get('generate-token')
   generateToken() {
     const userId = 'default-user-id';
@@ -140,7 +140,7 @@ export class AuthController {
       });
 
       return res.redirect(
-        `http://localhost:8080/ams-tools-cms/connect-success`,
+        `http://api.amyntasmedia.com/ams-tools-cms/connect-success`,
       );
     } catch (error) {
       return res.status(500).json({ error: 'OAuth2 token exchange failed' });
@@ -189,6 +189,12 @@ export class AuthController {
       user = await this.authService.createUser(userCreatePayload);
     }
     user = await this.authService.findByEmail(email);
+    // 💥 NEW: Create the blank email limits for the new Free user
+    await this.authService.createEmailLimits(user.id);
+    // 2. Initialize the Subscription Plan (Plan = FREE, Limit = 20)
+  await this.authService.createUserPlan(user.id, 'FREE');
+    // 🔹 Fetch user licenses
+  const licenses = await this.authService.getUserLicenses(user.id);
     const accessToken = this.authService.generateJwt(user);
     return {
       accessToken,
@@ -199,6 +205,8 @@ export class AuthController {
         picture,
         role: user.role,
         subscription: user.plan,
+         products: licenses.map(l => l.product), // ✅ products list
+      licenses: licenses, // optional full license info
       },
     };
   }
@@ -254,4 +262,5 @@ export class AuthController {
       connected: !!user.google_access_token,
     };
   }
+
 }

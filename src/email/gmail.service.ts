@@ -1,129 +1,133 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { google } from 'googleapis';
 import { DbService } from '../db/db.service';
 import { decrypt } from '../util/crypto.util';
+
 interface SendMailOptions {
   userId: number;
   to: string;
   subject: string;
   body: string;
 }
+
 @Injectable()
 export class GmailService {
-  private oauth2Client;
-  constructor(
-    private readonly dbService: DbService,
-  ) {
-    this.oauth2Client = new google.auth.OAuth2(
+  constructor(private readonly dbService: DbService) {
+    this.validateEnv();
+  }
+
+  private validateEnv() {
+    if (
+      !process.env.GOOGLE_CLIENT_ID ||
+      !process.env.GOOGLE_CLIENT_SECRET ||
+      !process.env.GOOGLE_REDIRECT_URL
+    ) {
+      throw new Error('Missing Google OAuth environment variables');
+    }
+  }
+
+  private createOAuthClient() {
+    return new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
       process.env.GOOGLE_REDIRECT_URL,
     );
-
   }
-  /**
-   * Get and decrypt refresh token from DB
-   */
-  private async getDecryptedRefreshToken(
-    userId: number,
-  ): Promise<string> {
-    const result = await this.dbService.executeQuery(`SELECT google_refresh_token FROM users WHERE id = $1`,[userId],
+
+  private async getRefreshToken(userId: number): Promise<string> {
+    const result = await this.dbService.executeQuery(
+      `SELECT google_refresh_token FROM users WHERE id = $1`,
+      [userId],
     );
+
     if (!result.length) {
-      throw new UnauthorizedException(
-        `User not found: ${userId}`,
-      );
+      throw new UnauthorizedException(`User not found: ${userId}`);
     }
+
     const encryptedToken = result[0].google_refresh_token;
+
     if (!encryptedToken) {
-      throw new UnauthorizedException(
-        `Refresh token not found`,
-      );
+      throw new UnauthorizedException('Refresh token not found');
     }
-    // ✅ Decrypt here
-    const refreshToken = decrypt(encryptedToken);
-    return refreshToken;
-  }
-  /**
-   * Refresh access token using decrypted refresh token
-   */
-  private async refreshAccessToken(
-    userId: number,
-  ): Promise<string> {
-    const refreshToken =
-      await this.getDecryptedRefreshToken(userId);
 
-    this.oauth2Client.setCredentials({
-      refresh_token: refreshToken,
-    });
-
-    const { credentials } =
-      await this.oauth2Client.refreshAccessToken();
-
-    if (!credentials.access_token) {
-      throw new UnauthorizedException(
-        'Failed to refresh access token',
-      );
-    }
-    return credentials.access_token;
+    return decrypt(encryptedToken);
   }
 
-  /**
-   * Send mail
-   */
+  private buildRawMessage(to: string, subject: string, body: string): string {
+    const message = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'Content-Type: text/html; charset=UTF-8',
+      'MIME-Version: 1.0',
+      '',
+      body,
+    ].join('\r\n');
+
+    return Buffer.from(message)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
+
   async sendMail({
     userId,
     to,
     subject,
     body,
-  }: SendMailOptions): Promise<string | null | undefined> {
+  }: SendMailOptions): Promise<string> {
+    try {
+      console.log(`📧 Sending email for user ${userId}`);
 
-    const accessToken =
-      await this.refreshAccessToken(userId);
+      const refreshToken = await this.getRefreshToken(userId);
 
-      console.log( userId,
-    to,
-    subject,accessToken,'=================================================')
+      const oauth2Client = this.createOAuthClient();
 
-    this.oauth2Client.setCredentials({
-      access_token: accessToken,
-    });
+      oauth2Client.setCredentials({
+        refresh_token: refreshToken,
+      });
 
-    const gmail = google.gmail({
-      version: 'v1',
-      auth: this.oauth2Client,
-    });
+      const accessToken = await oauth2Client.getAccessToken();
 
-    const message = [
-      `To: ${to}`,
-      'Content-Type: text/html; charset=utf-8',
-      'MIME-Version: 1.0',
-      `Subject: ${subject}`,
-      '',
-      body,
-    ].join('\n');
+      if (!accessToken?.token) {
+        throw new UnauthorizedException('Failed to generate access token');
+      }
 
-    const encodedMessage = Buffer
-      .from(message)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
- const response = await gmail.users.messages.send({
-    userId: 'me',
-    requestBody: {
-      raw: encodedMessage,
-    },
-  });
+      const gmail = google.gmail({
+        version: 'v1',
+        auth: oauth2Client,
+      });
 
-  const messageId = response.data.id;
+      const rawMessage = this.buildRawMessage(to, subject, body);
 
-  if (!messageId) {
-    throw new Error('Failed to retrieve Gmail messageId');
+      const response = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw: rawMessage },
+      });
+
+      if (!response.data.id) {
+        throw new InternalServerErrorException('Failed to send Gmail message');
+      }
+
+      console.log(`✅ Email sent → ${to}`);
+
+      return response.data.id;
+    } catch (error: any) {
+      if (error.message?.includes('invalid_grant')) {
+        console.error('❌ Refresh token expired');
+
+        throw new UnauthorizedException(
+          'Google authorization expired. Please reconnect Gmail.',
+        );
+      }
+
+      console.error('❌ Gmail send failed:', error);
+
+      throw new InternalServerErrorException(error.message);
+    }
   }
-
-  return messageId;
-
-  }
-
 }

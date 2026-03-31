@@ -1,0 +1,60 @@
+import { ConfigService } from '@nestjs/config';
+export declare class UtilService {
+    private readonly config;
+    KEY: string;
+    readonly NODE_ENVIRONMENT: string;
+    readonly DB_HOST: string;
+    readonly DB_USER: string;
+    readonly DB_PORT: number;
+    readonly DB_PASSWORD: string;
+    readonly DB_DATABASE: string;
+    constructor(config: ConfigService);
+    successResponse: (result: any, message?: string) => {
+        status: boolean;
+        message: string;
+        result: any;
+    };
+    failResponse: (message: any, errorMsg?: string) => {
+        status: boolean;
+        message: any;
+        error: string;
+    };
+    getObj: (key: any, value: any) => string;
+    getInsertObj: (key: any, value: any) => {
+        set: any;
+        value: any;
+    };
+    getDTYMDHMSDT: (dt?: null) => string;
+    getDTYMD: (dt?: null) => string;
+    getDTDMY: (dt?: null) => string;
+    getDTDMY2: (dt?: null) => string;
+    convertDT(dtstr: any): string;
+    getMinsAfterDT: (mins: any, dt?: null) => string;
+    getFullDateFormat: (dt?: null) => string;
+    currentDateFileName: () => string;
+    convertATDT: (dateStr: any) => string;
+    properFormatNumber: (number: any) => string;
+    calcCrow(lat1: any, lon1: any, lat2: any, lon2: any): number;
+    toRad(Value: any): number;
+    checkValue(value: any): boolean;
+    checkNUValue(value: any): boolean;
+    secToHms(d: any): string;
+    escapeChar(str: any): any;
+    getMomentDT: (dt?: null) => string;
+    getMomentDate: (dt?: null) => string;
+    getMomentDTLog: (dt?: null) => string;
+    zeroPadNumber(num: any, places: any): string;
+    getAge(dateString: any): number;
+    getDiffInDays(date1Str: any, date2Str: any): number;
+    getDiffInSec(date2Str: any, date1Str: any): number;
+    cleanJSON(s: any): any;
+    replaceQuotes(a: any): any;
+    parseHTMLToString(HTMLPart: any): any;
+    validateEmail(email: any): boolean;
+    base64ToString(data: any): string;
+    testJSON(text: any): boolean;
+    sleep(ms: any): Promise<unknown>;
+    getDifferenceBetweenTwoDatesInDays(dateStr2: any, dateStr1: any): number;
+    generateSecretHash(username: string, clientId: string, clientSecret: string): string;
+    replaceVariables(template: string, variables: Record<string, string>): string;
+}

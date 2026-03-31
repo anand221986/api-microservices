@@ -24,14 +24,24 @@ export class EmailSignatureService {
   // 📌 CREATE SIGNATURE
   async create(dto: CreateEmailSignatureDto) {
     try {
-    // const isPro = await this.usersService.isPro(dto.user_id);
-    const isPro = true;
+    const isPro = await this.usersService.isPro(dto.user_id);
+    // const isPro = true;
     if (!isPro) {
       // Free plan allows only 1 signature
       const existingSignatures = await this.getSignatures(dto.user_id);
-      if (existingSignatures.length >= 1) {
-        throw new ForbiddenException('Upgrade to Pro for multiple signatures');
+      if (existingSignatures.length >= 5) {
+        throw new ForbiddenException('Free plan allows only 5 email signatures. Upgrade to Pro.');
       }
+      else {
+      // ✅ PRO USER → max 10 per day
+      const todayCount = await this.getTodaySignatureCount(dto.user_id);
+
+      if (todayCount >= 10) {
+        throw new ForbiddenException(
+          'Daily limit reached (10 signatures per day for Pro users)'
+        );
+      }
+    }
     }
      const query = `INSERT INTO email_signatures(
     user_id, name, last_name, designation, company,
@@ -62,6 +72,8 @@ export class EmailSignatureService {
  !!dto.is_default 
 ];
  const [signature] = await this.dbService.executeQuery(query, values);
+ // 👉 increment count after successful creation
+await this.incrementSignatureCount(dto.user_id);
       return this.utilService.successResponse(
         signature,
         'Email signature created successfully',
@@ -155,4 +167,66 @@ export class EmailSignatureService {
   
     return result;
   }
+
+  async incrementSignatureCount(userId: number) {
+  try {
+    const result = await this.dbService.executeQuery(`
+      INSERT INTO email_limits (user_id, email_signatures_created_today, last_reset_date)
+      VALUES ($1, 1, CURRENT_DATE)
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        email_signatures_created_today = CASE
+          WHEN email_limits.last_reset_date = CURRENT_DATE
+          THEN email_limits.email_signatures_created_today + 1
+          ELSE 1
+        END,
+        last_reset_date = CURRENT_DATE
+      RETURNING *;
+      `,
+      [userId],
+    );
+
+    return result;
+  } catch (error) {
+    console.error('Error updating signature limits:', error);
+    throw new Error('Failed to update signature limits');
+  }
+}
+async getTodaySignatureCount(userId: number): Promise<number> {
+  const query = `
+    SELECT email_signatures_created_today, last_reset_date
+    FROM email_limits
+    WHERE user_id = $1
+  `;
+
+  const result = await this.dbService.executeQuery(query, [userId]);
+
+  // 👉 If no record exists, create one
+  if (result.length === 0) {
+    await this.dbService.executeQuery(
+      `INSERT INTO email_limits (user_id) VALUES ($1)`,
+      [userId]
+    );
+    return 0;
+  }
+
+  const row = result[0];
+
+  const today = new Date().toISOString().split("T")[0];
+
+  // ✅ Reset if date changed
+  if (row.last_reset_date !== today) {
+    await this.dbService.executeQuery(
+      `UPDATE email_limits
+       SET email_signatures_created_today = 0,
+           last_reset_date = CURRENT_DATE
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    return 0;
+  }
+
+  return Number(row.email_signatures_created_today);
+}
 }

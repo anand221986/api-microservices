@@ -11,6 +11,9 @@ import {
   HttpException,
   HttpStatus,
   ParseIntPipe,
+  NotFoundException,
+  InternalServerErrorException
+
   
 } from '@nestjs/common';
 import { EmailService } from './email.service';
@@ -69,9 +72,9 @@ export class EmailController {
     return this.mailService.processCsvFile(file, templateId);
   }
 
-  @Get("templates")
-  async getAllTemplates() {
-    let result = this.mailService.getTemplate();
+  @Get("templates/:userId")
+  async getAllTemplates(@Param("userId") userId: string) {
+    let result = this.mailService.getTemplates(Number(userId));
     return result;
   }
 
@@ -89,6 +92,7 @@ export class EmailController {
       'Get Templates Id successfully.',
     );
   }
+  
 
   @Delete('templates/:id')
   @ApiResponse({ status: 200, description: 'templates deleted successfully.' })
@@ -147,13 +151,34 @@ create(@Body() dto: CreateEmailTemplateDto) {
 
  
     // /** ✅ Fetch All Jobs */
-  @Get('merge-jobs')
-  async getJobs() {
+  @Get('merge-jobs/:userId')
+  async getJobs( @Param('userId', ParseIntPipe) userId: number) {
+   try {
+    const jobs = await this.mailService.getAllJobs(undefined, userId);
+    
     return {
       status: true,
-      result: await this.mailService.getAllJobs(),
+      message: 'Jobs retrieved successfully',
+      result: jobs,
     };
   }
+  catch (error) {
+    // Log the error for internal debugging
+    console.error(`Error fetching jobs for user ${userId}:`, error);
+
+    // If the service already threw a NotFoundException, re-throw it
+    if (error instanceof NotFoundException) {
+      throw error;
+    }
+
+    // Otherwise, throw a generic Internal Server Error
+    throw new InternalServerErrorException(
+      'An unexpected error occurred while fetching mail jobs'
+    );
+  }
+  }
+
+  
     // /** ✅ Fetch   Jobs by id */
   @Get('merge-jobs/:jobId')
   async getJobsbyId( @Param('jobId', ParseIntPipe) jobId: number) {
@@ -172,6 +197,17 @@ create(@Body() dto: CreateEmailTemplateDto) {
     };
   }
 
+  
+    @Get('mail-templates/:userId')
+  async getMailTemplatesByuserId(@Param('userId') userId: number) {
+    return {
+      status: true,
+      // result: await this.mailService.getTemplate(),
+      result:await this.mailService.getTemplateByUserId(userId),
+    };
+  }
+
+  
  
   @Delete('merge-jobs/:id')
   @ApiResponse({ status: 200, description: 'Merge Jobs deleted successfully.' })
@@ -189,9 +225,13 @@ create(@Body() dto: CreateEmailTemplateDto) {
 //mail merge button call the function 
  @Post('send')
 async sendMergeMail(@Body() body: MailMergeSendDto) {
-  return this.mailMergeService.sendMailMerge(body);
+  return this.mailMergeService.startMailMerge(body);
+  
 }
-
+ @Post('send-scheduled-mail')
+async sendScheduledMail(@Body() body: MailMergeSendDto) {
+  return this.mailMergeService.sendScheduledemail(body);
+}
 @Post('start-merge')
  async startMailMerge(@Body() body: MailMergeSendDto) {
     const job= await this.mailMergeService.startMailMerge(body);
@@ -200,4 +240,39 @@ async sendMergeMail(@Body() body: MailMergeSendDto) {
       jobId: job.jobId
     };
   }
+
+   @Get('merge-recipients/:jobId')
+  async getByJobId(@Param('jobId', ParseIntPipe) jobId: number) {
+    const recipients = await this.mailService.getByJobId(jobId);
+
+  return {
+    result: recipients,
+    total: recipients.length,
+  };
+  }
+
+  //get template by userId
+   @Get('templates/:userId')
+  async getTemplateByuserId(
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    let result = this.mailService.getTemplatebyuserId(userId);
+    return this.utilService.successResponse(
+      result,
+      'Get Templates by Id successfully.',
+    );
+  }
+     @Get('usage-limit/:userId')
+  async getUsageLimitByuserId(
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    let result = await this.mailService.getUsagelimitByuserId(userId);
+    return this.utilService.successResponse(
+      result,
+      'Get email usage limit by userId.',
+    );
+  }
+
+
+   
 }

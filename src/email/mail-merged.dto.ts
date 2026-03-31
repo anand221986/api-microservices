@@ -3,70 +3,87 @@ import {
   IsBoolean,
   IsEmail,
   IsNotEmpty,
-  IsObject,
   IsString,
+  IsOptional,
+  IsNumber,
   ValidateNested,
+  IsDate,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class SenderDto {
+/**
+ * Sender DTO
+ */
+export class SenderDto {
+
   @IsString()
   @IsNotEmpty()
   name: string;
 
   @IsEmail()
+  @IsNotEmpty()
   email: string;
-}
 
-class RecipientVariablesDto {
-  @IsString()
-  firstname: string;
-
-  @IsString()
-  lastname: string;
-
-  @IsString()
-  unsubscribe_link: string;
-}
-
-class RecipientDto {
+  @IsOptional()
   @IsEmail()
-  email: string;
-
-  @IsObject()
-  @ValidateNested()
-  @Type(() => RecipientVariablesDto)
-  variables: RecipientVariablesDto;
+  replyTo?: string;
 }
 
-// export class MailMergeSendDto {
-//   @IsString()
-//   fileName: string;
+/**
+ * Recipient Variables DTO
+ * Allows dynamic template variables like {{firstname}}, {{lastname}}
+ */
+export class RecipientVariablesDto {
 
-//   @IsString()
-//   templateId: string;
-
-//   @ValidateNested()
-//   @Type(() => SenderDto)
-//   sender: SenderDto;
-
-//   @IsBoolean()
-//   trackEmails: boolean;
-
-//   @IsArray()
-//   @ValidateNested({ each: true })
-//   @Type(() => RecipientDto)
-//   recipients: RecipientDto[];
-// }
-export class MailMergeSendDto {
+  @IsOptional()
   @IsString()
+  firstname?: string;
+
+  @IsOptional()
+  @IsString()
+  lastname?: string;
+
+  @IsOptional()
+  @IsString()
+  unsubscribe_link?: string;
+
+  // allow dynamic variables
+  [key: string]: any;
+}
+
+/**
+ * Recipient DTO
+ */
+export class RecipientDto {
+
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsOptional()
+  @IsObject()
+  variables?: Record<string, any>;
+}
+
+/**
+ * Main DTO used to create mail merge job
+ */
+export class MailMergeSendDto {
+
+  @IsNumber()
+  userId: number;
+
+  @IsString()
+  @IsNotEmpty()
   fileName: string;
 
-  @IsString()
-  templateId: string;
+  @IsNumber()
+  templateId: number;
 
+  @IsOptional()
   @IsBoolean()
-  trackEmails: boolean;
+  trackEmails?: boolean;
 
   @ValidateNested()
   @Type(() => SenderDto)
@@ -76,25 +93,51 @@ export class MailMergeSendDto {
   @ValidateNested({ each: true })
   @Type(() => RecipientDto)
   recipients: RecipientDto[];
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  scheduledAt?: Date;
 }
+
+/**
+ * Internal DTO (used for advanced sending if needed)
+ */
 export class SendMailMergeDto {
+
+  @IsNumber()
+  userId: number;
+
+  @IsString()
+  @IsNotEmpty()
   fileName: string;
+
+  @IsNumber()
   templateId: number;
+
+  @IsString()
+  @IsNotEmpty()
   subject: string;
+
+  @IsString()
+  @IsNotEmpty()
   template: string;
 
-  sender: {
-    name: string;
-    email: string;
-    replyTo?: string;
-  };
+  @ValidateNested()
+  @Type(() => SenderDto)
+  sender: SenderDto;
 
+  @IsOptional()
+  @IsBoolean()
   trackEmails?: boolean;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
   scheduledAt?: Date;
 
-  recipients: {
-    email: string;
-    variables: Record<string, any>;
-  }[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecipientDto)
+  recipients: RecipientDto[];
 }
-

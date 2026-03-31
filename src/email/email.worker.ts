@@ -2,11 +2,11 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { GmailService } from './gmail.service';
 import { DbService } from '../db/db.service';
-import util from 'node:util';
 
 interface MailJobData {
   jobId: number;
   templateId: number;
+  userId: number;
 }
 
 @Processor('mail-queue')
@@ -19,267 +19,203 @@ export class EmailWorker extends WorkerHost {
   }
 
   async process(job: Job<MailJobData>): Promise<any> {
-    const { jobId, templateId } = job.data;
-    console.log(templateId)
+    const { jobId, templateId, userId } = job.data;
 
-    console.log(`📨 Processing mail job: ${jobId}`);
+    console.log(`📨 Processing job: ${jobId}`);
 
     try {
-      /**
-       * STEP 1: Load template
-       */
-      const templateResult = await this.dbService.executeQuery(
+      // ✅ Get template
+      const template = await this.dbService.executeQuery(
         `SELECT subject, body FROM mail_templates WHERE id = $1`,
         [templateId],
       );
 
-      if (!templateResult?.length) {
-        throw new Error(`Template not found: ${templateId}`);
+      if (!template.length) {
+        throw new Error(`Template not found`);
       }
 
-      const subjectTemplate = templateResult[0].subject;
-      const bodyTemplate = templateResult[0].body;
+      const subjectTemplate = template[0].subject;
+      const bodyTemplate = template[0].body;
 
-      console.log(`📄 Template loaded`);
-
-      /**
-       * STEP 2: Load recipients (only pending)
-       */
+      // ✅ Get recipients
       const recipients = await this.dbService.executeQuery(
         `
-        SELECT id, email, variables
-        FROM mail_merge_recipients
-        WHERE job_id = $1
-        AND status = 'PENDING'
+        SELECT r.id, r.email, r.variables, s.unsubscribe_token
+        FROM mail_merge_recipients r
+        INNER JOIN email_subscriptions s ON r.email = s.email
+        WHERE r.job_id = $1
+        AND r.status = 'PENDING'
+        AND s.is_subscribed = TRUE
         `,
         [jobId],
       );
 
-      console.log(`👥 Recipients found: ${recipients.length}`);
+      console.log(`👥 Recipients: ${recipients.length}`);
 
-      if (!recipients.length) {
-        return;
-      }
+      if (!recipients.length) return;
 
-      /**
-       * STEP 3: Process recipients in parallel (limit 5)
-       */
       const concurrency = 5;
 
+      // ✅ Process in batches
       for (let i = 0; i < recipients.length; i += concurrency) {
         const batch = recipients.slice(i, i + concurrency);
 
         await Promise.all(
-          batch.map((recipient) =>
+          batch.map((r) =>
             this.processRecipient(
-              recipient,
+              r,
               subjectTemplate,
               bodyTemplate,
+              userId,
+              jobId, // ✅ pass jobId
             ),
           ),
         );
       }
 
-      /**
-       * STEP 4: Mark job completed
-       */
+      // ✅ Mark job completed ONLY when all processed
       await this.dbService.executeQuery(
         `
         UPDATE mail_merge_jobs
         SET status = 'COMPLETED',
             completed_at = NOW()
         WHERE id = $1
+        AND processed >= total
         `,
         [jobId],
       );
 
-      console.log(`🎉 Job completed: ${jobId}`);
-    } catch (error: any) {
-      console.error(`🔥 JOB FAILED`, error);
-
-      await this.dbService.executeQuery(
-        `
-        UPDATE mail_merge_jobs
-        SET status = 'FAILED',
-            error = $1,
-            completed_at = NOW()
-        WHERE id = $2
-        `,
-        [
-          JSON.stringify({
-            message: error.message,
-            stack: error.stack,
-          }),
-          jobId,
-        ],
-      );
-
+      console.log(`🎉 Job completed`);
+    } catch (error) {
+      console.error(`🔥 Job failed`, error);
       throw error;
     }
   }
 
-  /**
-   * Process single recipient
-   */
   private async processRecipient(
     recipient: any,
     subjectTemplate: string,
     bodyTemplate: string,
+    userId: number,
+    jobId: number, // ✅ FIXED TYPE
   ) {
     console.log(`📧 Sending → ${recipient.email}`);
 
     try {
-      /**
-       * Parse variables safely
-       */
       let variables: Record<string, any> = {};
 
       if (recipient.variables) {
-        if (typeof recipient.variables === 'object') {
-          variables = recipient.variables;
-        } else {
-          variables = JSON.parse(recipient.variables);
+        try {
+          variables =
+            typeof recipient.variables === 'object'
+              ? recipient.variables
+              : JSON.parse(recipient.variables);
+        } catch {
+          variables = {};
         }
       }
 
-      /**
-       * Render templates
-       */
       const subject = this.renderTemplate(subjectTemplate, variables);
-      const body = this.renderTemplate(bodyTemplate, variables);
+      let body = this.renderTemplate(bodyTemplate, variables);
 
-      /**
-       * Send email with timeout protection
-       */
-      const messageId = await this.withTimeout(
-        this.gmailService.sendMail({
-          userId: 87,
-          to: recipient.email,
-          subject,
-          body,
-        }),
-        30000,
-      );
+      const unsubscribeLink = `${process.env.API_URL}/unsubscribe?token=${recipient.unsubscribe_token}`;
 
-      /**
-       * Update SUCCESS
-       */
+      body += `
+      <br><br>
+      <hr>
+      <p style="font-size:12px;color:gray;">
+      If you don't want to receive these emails,
+      <a href="${unsubscribeLink}">unsubscribe here</a>
+      </p>
+      `;
+
+      // ✅ Send email
+      const messageId = await this.gmailService.sendMail({
+        userId,
+        to: recipient.email,
+        subject,
+        body,
+      });
+
+      // ✅ Update success
       await this.dbService.executeQuery(
         `
         UPDATE mail_merge_recipients
-        SET status = 'SUCCESS',
-            message_id = $1,
-            error = NULL
-        WHERE id = $2
+        SET status='SUCCESS', message_id=$1, error_message=NULL
+        WHERE id=$2
         `,
         [messageId, recipient.id],
       );
+      // ✅ INSERT INTO email_logs (HERE 👇)
+   await this.dbService.executeQuery(
+  `INSERT INTO email_logs (user_id)
+   VALUES ($1)
+`,
+  [userId],
+);
+try {
+  const result = await this.dbService.executeQuery(
+    `
+    INSERT INTO email_limits (user_id, emails_sent_today, last_reset_date)
+    VALUES ($1, 1, CURRENT_DATE)
+    ON CONFLICT (user_id)
+    DO UPDATE SET
+      emails_sent_today = CASE
+        WHEN email_limits.last_reset_date = CURRENT_DATE
+        THEN email_limits.emails_sent_today + 1
+        ELSE 1
+      END,
+      last_reset_date = CURRENT_DATE
+    RETURNING *;
+    `,
+    [userId],
+  );
 
+  return result;
+} catch (error) {
+  console.error('Error updating email limits:', error);
+
+  // Optional: throw custom exception (NestJS style)
+  throw new Error('Failed to update email limits');
+}
       console.log(`✅ Sent → ${recipient.email}`);
     } catch (error: any) {
       console.error(`❌ Failed → ${recipient.email}`);
 
+      // ✅ Update failure
       await this.dbService.executeQuery(
         `
         UPDATE mail_merge_recipients
-        SET status = 'FAILED',
-            error = $1
-        WHERE id = $2
+        SET status='FAILED', error_message=$1
+        WHERE id=$2
         `,
         [
           JSON.stringify({
             message: error.message,
-            stack: error.stack,
           }),
           recipient.id,
         ],
       );
+    } finally {
+      // ✅ ALWAYS increment processed count (KEY FIX)
+      await this.dbService.executeQuery(
+        `
+        UPDATE mail_merge_jobs
+        SET processed = processed + 1
+        WHERE id = $1
+        `,
+        [jobId],
+      );
     }
   }
 
-  /**
-   * Template renderer
-   */
-private renderTemplate(
-  template: string,
-  variables: Record<string, any>,
-): string {
-
-  try {
-
-    // Validate template
-    if (!template || typeof template !== 'string') {
-      console.error('❌ renderTemplate: Invalid template', template);
-      return '';
-    }
-
-    // Validate variables
-    if (!variables || typeof variables !== 'object') {
-      console.error('❌ renderTemplate: Invalid variables', variables);
-      variables = {};
-    }
-
-    // Replace variables safely
-    const result = template.replace(/{{(.*?)}}/g, (match, key) => {
-
-      try {
-
-        const cleanKey = key?.trim();
-
-        if (!cleanKey) {
-          console.warn(`⚠️ Empty template variable: ${match}`);
-          return '';
-        }
-
-        const value = variables[cleanKey];
-
-        if (value === undefined || value === null) {
-          console.warn(`⚠️ Missing variable: ${cleanKey}`);
-          return '';
-        }
-
-        return String(value);
-
-      } catch (innerError) {
-
-        console.error(
-          `❌ Error replacing variable: ${match}`,
-          innerError,
-        );
-
-        return '';
-      }
-
+  private renderTemplate(
+    template: string,
+    variables: Record<string, any>,
+  ): string {
+    return template.replace(/{{(.*?)}}/g, (_, key) => {
+      const value = variables[key.trim()];
+      return value ? String(value) : '';
     });
-
-    return result;
-
-  } catch (error) {
-
-    console.error(
-      '🔥 renderTemplate FAILED:',
-      error,
-      '\nTemplate:',
-      template,
-      '\nVariables:',
-      variables,
-    );
-
-    return template || '';
-  }
-}
-
-  /**
-   * Timeout wrapper (prevents hanging)
-   */
-  private async withTimeout<T>(
-    promise: Promise<T>,
-    ms: number,
-  ): Promise<T> {
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), ms),
-    );
-
-    return Promise.race([promise, timeout]);
   }
 }
