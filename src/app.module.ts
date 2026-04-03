@@ -26,8 +26,6 @@
   import { IMailService } from './util/mail.service';
   import { GmailImapService } from './util/gmail-imap.service';
   import { AuthModule } from './auth/auth.module';
-  import { GoogleAuthService} from './auth/google-auth.service';
-  import { GoogleAuthModule } from './auth/google-auth.module';
   import { BullModule } from '@nestjs/bullmq';
   /* Middleware */
   import { ApiMiddleware } from './middleware/api.middleware';

@@ -13,6 +13,8 @@ import { SendMailDto } from './dto/send-mail.dto';
 import { GoogleAuthService } from './google-auth.service';
 import { GmailService } from './gmail.service';
 import { encrypt } from 'src/util/crypto.util';
+import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 @ApiTags('Auth')
 @Controller("auth")
 export class AuthController {
@@ -173,6 +175,11 @@ export class AuthController {
     let user = await this.authService.findByEmail(email);
     if (!user) {
       // 4️⃣ Create new Google user
+      // 💥 NEW: Use the fixed default password requested
+    const defaultPassword = 'Admin@2026';
+    
+    // Hash the fixed password with bcrypt
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
       const userCreatePayload = {
         first_name: firstName || '',
         last_name: lastName || '',
@@ -181,7 +188,7 @@ export class AuthController {
         created_dt: new Date(),
         email_verified: 1, // Google email is already verified
         phone_verified: 0,
-        password: null, // ❗ No password for Google SSO
+        password: hashedPassword, // ❗ No password for Google SSO
         google_id: googleId,
         role: 'Testing',
         agency_id: 0,
